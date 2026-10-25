@@ -53,8 +53,8 @@ Lunes a sábado: 6:00-7:00 AWS, luego **7:00-9:00 este sprint** en tres bloques 
 |---|---|
 | Project / Language | Maven / Java |
 | Spring Boot | **4.1.2** (sin SNAPSHOT ni RC) |
-| Group / Artifact | `com.emiliano` / `refunds` |
-| Package name | `com.emiliano.refunds` |
+| Group / Artifact | `com.erv` / `refunds` |
+| Package name | `com.erv.refunds` |
 | Packaging / Configuration | Jar / Properties |
 | Java | **21** |
 | Dependencias | Spring Web, Validation, Spring Data JPA, PostgreSQL Driver, Spring Boot Actuator, Flyway Migration |
@@ -74,7 +74,7 @@ Sin Lombok (practicas constructores, `equals` y `hashCode` a mano), sin Security
 Hexagonal en versión ligera: `domain` no importa Spring ni JPA, con puertos como interfaces y adaptadores intercambiables (memoria → JPA). Convención de comentario en cada clase: `// CONCEPTO: ...` (una línea). Reparto: Claude hace 2 de cada 10, tú el resto.
 
 ```
-com.emiliano.refunds
+com.erv.refunds
 ├── domain          (model, policy, exception)
 ├── application     (port.in, port.out, service)
 └── infrastructure  (adapter.in.web, adapter.in.scheduler, adapter.out.persistence: memory, jpa)
@@ -92,13 +92,26 @@ La API usa variables de entorno desde el Día 1, así que cambiar de fase no toc
 
 ---
 
+## Flujo de Git (lo haces tú desde la terminal, para practicar)
+
+Claude **no** crea ramas, commits ni PRs: solo te recuerda en cada etapa qué toca y revisa lo que subes.
+
+- `main`: solo lo que ya se "liberó" (fin de etapa). `development`: integración diaria.
+- Una rama por etapa, creada desde `development`: `git switch development && git pull && git switch -c feature/<nombre>`.
+- Commits pequeños con Conventional Commits: `feat(domain): ...`, `fix(web): ...`, `test(domain): ...`, `chore(config): ...`, `docs: ...`.
+- PR de la rama hacia `development` con descripción de tres partes: **qué cambia**, **por qué**, **cómo probarlo** (`curl`, prueba, consulta). Merge y borrar la rama.
+- Al cerrar una etapa entregable, PR de `development` → `main` y un tag (`git tag -a v0.x.0 -m "..."`, `git push --tags`).
+- La contraseña de la base **nunca** entra a un commit; antes de cada `git add`, revisa con `git status` y `git diff --staged`.
+
+---
+
 ## Día 1 · Domingo 25 oct: Cimientos + Linux
 
 **Objetivo:** proyecto arrancando con `/actuator/health` en `UP`, dominio base modelado y diagnóstico de Linux hecho.
 
 | Bloque | Qué |
 |---|---|
-| 11:30-12:15 | Verificar JDK 21, Postgres, pgAdmin; `CREATE DATABASE refunds`. Generar proyecto en Initializr, `git init`, primer commit con `SPRINT.md` y `ARQUITECTURA.md`. |
+| 11:30-12:15 | Verificar JDK 21, Postgres, pgAdmin; `CREATE DATABASE refunds`. Generar proyecto en Initializr, repo en GitHub con `main` y `development` (hecho). Configurar `application.properties` con `DB_URL`/`DB_USER`/`DB_PASSWORD` para que la app arranque contra la base vacía. |
 | 12:15-13:30 | **Construcción:** Claude hace `Money` (record) y `RefundStatus` (enum con transiciones). Tú: `PaymentId`/`RefundId`, `PaymentStatus`, `Payment`, `Refund`, `PaymentMethod` → `CardPayment`/`ReferencePayment`, `RefundPolicy` → `FullRefund`/`PartialRefund`, excepciones de dominio. |
 | 15:00-16:30 | **Drill:** diagnóstico Linux de 5 preguntas + escenarios (servidor lento, disco lleno, proceso colgado). |
 | 17:00-18:30 | Entrenamiento. |
@@ -106,6 +119,10 @@ La API usa variables de entorno desde el Día 1, así que cambiar de fase no toc
 **Terminado cuando:** compila, `/actuator/health` devuelve `UP`, las piezas del dominio existen con su `CONCEPTO` y puedes explicar por qué `domain` no importa Spring.
 
 **Si se alarga:** `RetryQueue` e `IdempotencyStore` pasan al Día 2.
+
+**Git (tú):**
+- `chore/config-db`: `application.properties` con variables de entorno → PR a `development`.
+- `feature/dia1-dominio-base`: un commit por pieza (`feat(domain): Money como record inmutable`, etc.) → PR a `development` con la lista de conceptos practicados.
 
 ---
 
@@ -119,6 +136,10 @@ La API usa variables de entorno desde el Día 1, así que cambiar de fase no toc
 
 **Terminado cuando:** los endpoints responden con `curl` con adaptador en memoria, hay 3+ pruebas unitarias del dominio y la API escribe logs que luego parsearás con tus scripts.
 
+**Git (tú):**
+- `feature/dia2-puertos-rest`: puertos, servicios, adaptador en memoria, controllers y `GlobalExceptionHandler`. En el PR, pega los `curl` de prueba y sus respuestas.
+- `feature/dia2-scripts`: los scripts Bash/Python en `scripts/` → PR aparte.
+
 ---
 
 ## Día 3 · Martes 27 oct: Postgres, JPA y SQL avanzado
@@ -131,6 +152,10 @@ La API usa variables de entorno desde el Día 1, así que cambiar de fase no toc
 
 **Terminado cuando:** la API funciona contra Postgres, el seed está cargado, y puedes mostrar una consulta con ventana y un `EXPLAIN` antes y después de un índice.
 
+**Git (tú):**
+- `feature/dia3-postgres-jpa`: migraciones Flyway, adaptador JPA, mappers y `@Version`. En el PR, explica que el cambio de memoria a JPA no tocó `domain` (enséñalo con `git diff --stat`).
+- `feature/dia3-seed`: seed con datos sucios. En el PR, documenta qué datos sucios plantaste y que los 2 índices faltan **a propósito**.
+
 ---
 
 ## Día 4 · Miércoles 28 oct: Java depurando + despliegue
@@ -142,6 +167,10 @@ La API usa variables de entorno desde el Día 1, así que cambiar de fase no toc
 | 8:45-9:00 | **B · Linux repaso:** puntos débiles del diagnóstico del Día 1. |
 
 **Terminado cuando:** entras por SSH, reinicias el servicio, lees logs con `journalctl` y `tail -f`, y la API corre también en contenedor con Postgres migrado y validado.
+
+**Git (tú):**
+- `feature/dia4-despliegue`: Logback, perfiles, Actuator, `Dockerfile`, unidad `systemd` y config de `logrotate` (en `deploy/`).
+- Fin de la primera etapa entregable: PR `development` → `main` y tag `v0.1.0`.
 
 ---
 
@@ -157,6 +186,11 @@ La API usa variables de entorno desde el Día 1, así que cambiar de fase no toc
 
 **Terminado cuando:** diagnosticaste al menos 3 fallas con evidencia y tienes 2 post-mortems escritos (causa raíz, mitigación, acción correctiva definitiva).
 
+**Git (tú):**
+- `incident/dia5-fallas-plantadas`: las fallas van en una rama que **nunca se mergea** a `development` (empújala para tener el historial, pero sin PR).
+- Por cada falla diagnosticada: `fix/<falla>` desde `development` con la acción correctiva definitiva → PR que enlace al post-mortem.
+- `docs/dia5-postmortems`: post-mortems en `docs/postmortems/` → PR a `development`.
+
 ---
 
 ## Día 6 · Viernes 30 oct: CI/CD, colaboración y preguntas difíciles
@@ -169,6 +203,11 @@ La API usa variables de entorno desde el Día 1, así que cambiar de fase no toc
 
 **Terminado cuando:** un push dispara el build y puedes explicar el rollback paso a paso.
 
+**Git (tú):**
+- `ci/dia6-github-actions`: workflow en `.github/workflows/` y el script de despliegue con rollback → PR a `development` (el propio PR debe disparar el build).
+- Practica también el rollback en Git: `git revert` de un commit ya mergeado, en una rama `fix/` con PR.
+- Cierre de etapa: PR `development` → `main` y tag `v1.0.0`.
+
 ---
 
 ## Día 7 · Sábado 31 oct: Simulacro final
@@ -179,6 +218,8 @@ La API usa variables de entorno desde el Día 1, así que cambiar de fase no toc
 | Principal | **Simulacro completo de 45 min en inglés:** técnicas, conductuales y salario/disponibilidad. |
 | Cierre | Reporte: calificación por área, 5 puntos débiles y qué repasar antes de la llamada. |
 
+**Git (tú):** `docs/dia7-cierre` con la lista final de puntos débiles en este archivo → PR a `development` y luego a `main`. Revisa el historial con `git log --oneline --graph --all`: es lo que vas a mostrar si te preguntan por tu flujo de trabajo.
+
 ---
 
 ## Preguntas para el reclutador (la publicación no lo dice)
@@ -187,7 +228,7 @@ Salario, modalidad (presencial, híbrida o remota en Guadalajara), horarios, tur
 
 ## Rutina de cierre de cada sesión (5 min)
 
-1. Qué dominé. 2. Qué falló. 3. Qué repetimos mañana. 4. Actualizar los **puntos débiles**.
+1. Qué dominé. 2. Qué falló. 3. Qué repetimos mañana. 4. Actualizar los **puntos débiles**. 5. Commit, push y PR de lo del día (nada queda sin subir).
 
 ## Puntos débiles (se actualiza cada día)
 
