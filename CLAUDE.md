@@ -14,6 +14,7 @@ Proyecto de práctica para un sprint de 7 días (25-31 oct 2026) de preparación
 - **Spring Boot 4.1.2 / Java 21.** Si algo no compila, revisar el error real en lugar de copiar patrones de Spring Boot 3.x (p. ej. el starter web es `spring-boot-starter-webmvc`, y hay starters `*-test` separados).
 - **Alcance de esta semana: solo P1** (ver tabla de prioridades en `ARQUITECTURA.md`). Fuera: facturación/timbrado, outbox, eventos de dominio, ArchUnit, circuit breaker, OpenAPI, Testcontainers.
 - **Defectos intencionales, no "arreglarlos":** el seed de Flyway trae datos sucios plantados (duplicados, reembolsos > pago, estados inconsistentes) y la migración de índices omite 2 índices a propósito para el drill de `EXPLAIN`. Las fallas del Día 5 (NPE, pool Hikari agotado, consulta lenta, disco lleno, OOM, config mal puesta) **las planta el usuario, nunca Claude**.
+- **Git lo hace el usuario a mano, para practicar.** Claude no ejecuta `git switch -c`, `commit`, `push` ni `tag`, ni crea PRs. Al empezar y al cerrar cada etapa, Claude le recuerda qué rama toca, qué commits sugiere y qué debe llevar el PR, según la sección "Flujo de Git" y las líneas **Git (tú)** de cada día en `SPRINT.md`. Ramas: `main` (liberado), `development` (integración), y `feature/*`, `fix/*`, `docs/*`, `ci/*` creadas desde `development`. Commits con Conventional Commits.
 
 ## Comandos
 
@@ -26,11 +27,11 @@ Proyecto de práctica para un sprint de 7 días (25-31 oct 2026) de preparación
 curl -s localhost:8080/actuator/health | jq              # verificación básica
 ```
 
-Requiere PostgreSQL con base `refunds`. La conexión se toma de las variables de entorno `DB_URL`, `DB_USER` y `DB_PASSWORD` (la contraseña va en la Run Configuration de IntelliJ, nunca en Git). `application.properties` debe usar `ddl-auto=none` (el esquema lo controla Flyway), `open-in-view=false` y `server.shutdown=graceful`. Hoy `application.properties` solo tiene `spring.application.name`, así que `RefundsApplicationTests.contextLoads` (`@SpringBootTest` con JPA + Flyway) falla si no hay base disponible.
+Requiere PostgreSQL con base `refunds`. La conexión se toma de las variables de entorno `DB_URL`, `DB_USER` y `DB_PASSWORD` (la contraseña va en la Run Configuration de IntelliJ, nunca en Git). `application.properties` debe usar `ddl-auto=none` (el esquema lo controla Flyway), `open-in-view=false` y `server.shutdown=graceful`. Como el proyecto incluye JPA y Flyway, la app (y `RefundsApplicationTests.contextLoads`) no arranca sin una base accesible. Por eso la conexión se configura desde el Día 1, aunque las tablas y el adaptador JPA lleguen hasta el Día 3. Para correr `./mvnw test` desde la terminal, hay que exportar esas variables antes.
 
 ## Arquitectura
 
-**Paquete base real: `com.erv.refunds`** (los `.md` dicen `com.emiliano.refunds`; manda el código). Hexagonal en tres capas:
+Paquete base: `com.erv.refunds`. Hexagonal en tres capas:
 
 - `domain` (`model`, `policy`, `exception`): **no importa Spring ni JPA**. Value objects como records inmutables con validación en el constructor compacto (`Money`, IDs con UUID, `IdempotencyKey`, etc.). Los enums de estado exponen `canTransitionTo(next)` y una transición inválida lanza `InvalidStateTransitionException`. `Payment` es la raíz del agregado y mantiene `refundedTotal`, que nunca excede lo pagado. `PaymentMethod` es abstracta con subclases por tipo; `RefundPolicy`/`FeePolicy` son estrategias polimórficas. Todas las excepciones heredan de `DomainException`.
 - `application` (`port.in`, `port.out`, `service`): un servicio por caso de uso, con `@Transactional` **solo aquí**. Los DTOs de casos de uso son records `Command`/`Result`, distintos de los DTOs web. Los puertos de salida (repositorios, `IdempotencyStorePort`, `PaymentGatewayPort` simulado, `ClockPort` para tests deterministas) son interfaces.

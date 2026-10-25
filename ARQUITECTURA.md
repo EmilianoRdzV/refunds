@@ -202,7 +202,7 @@ Agrega `@Version` (locking optimista) en `Payment` y `Refund`.
 ## 8. Estructura de paquetes final
 
 ```
-com.emiliano.refunds
+com.erv.refunds
 ├── domain
 │   ├── model (money, payment, refund, invoice, customer, audit)
 │   ├── policy
